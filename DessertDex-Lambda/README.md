@@ -67,3 +67,4 @@ fields @timestamp, level, request_id, outcome, error_code, duration_ms
 ```
 
 Lambda가 정상 반환한 `statusCode: 400`은 기본 `Errors` 지표에 집계되지 않습니다. 검증 실패를 집계하려면 위 필터에 `outcome = "validation_failed"` 조건을 추가하고 `stats count(*) as rejected_requests by error_code`를 사용합니다. [Lambda 오류 지표](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html)
+CI verification via GitHub Actions.
