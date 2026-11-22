@@ -1,0 +1,50 @@
+name: Lambda CI
+
+'on':
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Python 3.13 tests and security checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install development dependencies
+        id: install
+        run: |
+          python -m pip install --upgrade 'pip>=26.2'
+          python -m pip install -r requirements-dev.txt
+
+      - name: pytest
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python -m pytest
+
+      - name: Ruff
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python -m ruff check --no-cache src tests
+
+      - name: Bandit report (all severities)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python -m bandit -c pyproject.toml -r src --exit-zero
+
+      - name: Bandit gate (medium and high)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python -m bandit -c pyproject.toml -r src --severity-level medium
+
+      - name: pip-audit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: python -m pip_audit --strict --aliases
