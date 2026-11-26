@@ -11,7 +11,7 @@ Lambda 이벤트는 호출자가 제공하는 입력입니다. 처리 순서는 
 ## 로그 보안 정책
 
 - 완료 로그는 고정 메시지와 네 개의 구조화 필드만 애플리케이션에서 제공합니다. `request_id`는 Lambda 컨텍스트의 `aws_request_id`에서 가져오며 문자열 ID가 없으면 `null`입니다. `duration_ms`는 핸들러 시작부터 완료 로그 직전까지의 경과 시간입니다.
-- 성공은 `INFO` 및 `outcome=success`로 기록하고 `error_code`는 `null`로 둡니다. 검증 실패는 `WARNING` 및 `outcome=validation_failed`와 함께 고정 코드 `INVALID_INPUT_TYPE`, `INVALID_COLLECTION_DATA`, `INVALID_UNLOCK_THRESHOLD` 중 하나로 기록합니다. 분류되지 않은 검증 오류에는 `VALIDATION_FAILED`를 사용합니다.
+- 성공은 `INFO` 및 `outcome=success`로 기록하고 Python 로그 레코드의 `error_code`는 `None`으로 둡니다. 실제 AWS 검증에서 성공 로그의 CloudWatch JSON에는 이 필드가 생략됐습니다. 검증 실패는 `WARNING` 및 `outcome=validation_failed`와 함께 고정 코드 `INVALID_INPUT_TYPE`, `INVALID_COLLECTION_DATA`, `INVALID_UNLOCK_THRESHOLD` 중 하나로 기록합니다. 분류되지 않은 검증 오류에는 `VALIDATION_FAILED`를 사용합니다. [AWS 관측 결과](aws-validation.md#cloudwatch-설정과-관측-결과)
 - 이벤트와 응답 원문, 사용자 식별 정보, 인증 헤더 및 토큰, AWS 자격 증명은 기록 대상에서 제외합니다. 로깅 중 발생한 예외도 기존 응답에 영향을 주지 않도록 로깅 경계에서 처리합니다.
 - 구조화 필드는 표준 `logging`의 `extra`로 전달합니다. JSON 직렬화는 Lambda의 로그 설정에서 처리합니다.
 

@@ -2,6 +2,23 @@
 
 `DessertDexCollection`은 수집률을 계산하고 특별 일러스트 해금 여부를 반환합니다. 개발 및 실행 기준은 Python 3.13입니다.
 
+## 개발 성과 및 검증 결과
+
+계산 로직과 입력 검증을 Lambda 핸들러에서 분리하고, 기존 호출 계약을 유지하면서 비정상 이벤트와 과도한 정수 입력을 처리하도록 보강했습니다. 요청 결과는 구조화 로그로 기록하며, GitHub Actions에서 테스트와 보안 점검을 자동 실행합니다.
+
+| 검증 항목 | 결과 |
+|---|---|
+| 로컬 pytest | 69개 통과, 실패 0개 |
+| Ruff | 오류 0건 |
+| Bandit (`src`) | 낮음 1건, 중간·높음 0건 |
+| pip-audit | 알려진 취약점 0건 |
+| GitHub Actions | 실제 실행 성공, 26초 |
+| AWS Lambda | Python 3.13, ARM64, ZIP 배포 성공 |
+| AWS 독립 검증 | 기존 기능 회귀 6개와 추가 보안 테스트 4개 통과, 실패 0개 |
+| CloudWatch | JSON 로그에서 정상 INFO와 비정상 WARNING 확인. Logs Insights 조회·필터·집계 검증 완료 |
+
+EC2 및 S3와의 실제 팀 서비스 통합은 아직 수행하지 않았습니다. [AWS 배포 환경, 검증 결과 및 재현 쿼리](docs/aws-validation.md)
+
 ## 로컬 테스트
 
 Windows PowerShell에서 `DessertDex-Lambda` 디렉터리로 이동한 뒤 실행합니다. `python --version`으로 Python 3.13이 선택됐는지 확인합니다.
@@ -53,18 +70,6 @@ PowerShell에서 다음 명령을 실행하면 pytest가 성공 호출과 검증
 .\.venv\Scripts\python.exe -m pytest tests/test_logging.py -k 'success_log or validation_warning' --log-cli-level=INFO -o 'log_cli_format=%(levelname)s %(message)s request_id=%(request_id)s outcome=%(outcome)s error_code=%(error_code)s duration_ms=%(duration_ms).3f'
 ```
 
-## CloudWatch 확인 절차
+## CloudWatch 검증
 
-1. AWS에서 검증할 때 `DessertDexCollection`의 로그 형식을 **JSON**, 애플리케이션 로그 수준을 **INFO**로 설정합니다. Python `logging`의 `extra` 필드는 Lambda가 JSON 필드로 변환합니다. 기본 로그 그룹은 `/aws/lambda/DessertDexCollection`이며, 로그가 보이지 않으면 기존 실행 역할의 로그 쓰기 권한과 조회 계정의 권한을 확인합니다. [Python 로깅 설정](https://docs.aws.amazon.com/lambda/latest/dg/python-logging.html) · [CloudWatch Logs 권한](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html)
-2. 정상 이벤트 `{"total_desserts":2,"collected_desserts":1,"unlock_threshold":50}`와 검증 실패 이벤트 `{"total_desserts":0}`를 호출합니다. 각각 기존 `200`과 `400` 응답을 확인합니다.
-3. CloudWatch Logs Insights에서 해당 로그 그룹과 호출 시간대를 선택하고 아래 쿼리를 실행합니다. 정상 호출은 `INFO / success`, 검증 실패는 `WARNING / validation_failed`로 표시되며 두 호출 모두 `request_id`와 숫자형 `duration_ms`로 추적할 수 있습니다. 성공의 `error_code`는 JSON에서 `null`이며, 실패 예시에서는 `INVALID_COLLECTION_DATA`입니다.
-
-```text
-fields @timestamp, level, request_id, outcome, error_code, duration_ms
-| filter message = "Collection request completed"
-| sort @timestamp desc
-| limit 50
-```
-
-Lambda가 정상 반환한 `statusCode: 400`은 기본 `Errors` 지표에 집계되지 않습니다. 검증 실패를 집계하려면 위 필터에 `outcome = "validation_failed"` 조건을 추가하고 `stats count(*) as rejected_requests by error_code`를 사용합니다. [Lambda 오류 지표](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html)
-CI verification via GitHub Actions.
+실제 AWS 검증에서 정상 요청의 CloudWatch JSON 로그에는 `error_code`가 생략됐고, 비정상 요청에서는 `INVALID_INPUT_TYPE`을 확인했습니다. [CloudWatch 설정과 Logs Insights 쿼리 4개](docs/aws-validation.md#cloudwatch-설정과-관측-결과)
